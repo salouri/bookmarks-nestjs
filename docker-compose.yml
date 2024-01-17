@@ -1,0 +1,17 @@
+version: '3.9'
+
+services:
+  dev-postgres:
+    image: postgres:14-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - ~/apps/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123
+      - POSTGRES_DB=nest
+    networks:
+      - nestbookmarks
+networks:
+  nestbookmarks:
