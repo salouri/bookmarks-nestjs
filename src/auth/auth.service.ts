@@ -3,10 +3,16 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthDto } from './dto';
 import * as argon from 'argon2';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable({})
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService,
+  ) {}
 
   async signup(dto: AuthDto) {
     console.log('dto: ', dto);
@@ -19,18 +25,18 @@ export class AuthService {
           email: dto.email,
           hash,
         },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          createdAt: true,
-        },
+        // select: {
+        //   id: true,
+        //   email: true,
+        //   firstName: true,
+        //   lastName: true,
+        //   createdAt: true,
+        // },
       });
-
       // or you can use "delete user.hash"
-      // return saved record
-      return user;
+
+      // return created access_token
+      return this.singToken(user.id, user.email);
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code == 'P2002') {
@@ -56,8 +62,26 @@ export class AuthService {
     const pwMatches = await argon.verify(user.hash, dto.password);
     if (!pwMatches) throw new ForbiddenException('Credentials incorrect');
 
-    // return the user
-    delete user.hash;
-    return user;
+    // return created access_token
+    return this.singToken(user.id, user.email);
+  }
+
+  async singToken(
+    userId: number,
+    email: string,
+  ): Promise<{ access_token: string }> {
+    const payload = {
+      sub: userId,
+      email,
+    };
+    const expTimeMin = this.config.get('JWT_EXPIRES_IN');
+    const jwtSecret = this.config.get('JWT_SECRET');
+    const token = await this.jwt.signAsync(payload, {
+      expiresIn: expTimeMin,
+      secret: jwtSecret,
+    });
+    return {
+      access_token: token,
+    };
   }
 }
